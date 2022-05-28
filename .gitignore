@@ -1,0 +1,14 @@
+# VS code
+*.vscode
+
+# C/C++
+**.exe
+**.out
+
+# JS/TS
+**/node_modules
+*package-lock.json
+*package.json
+
+# General
+*.pdf

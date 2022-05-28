@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Grafici di funzione</title>
+    <link href="style.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext("2d");
+
+        const sc = 10
+
+        const punto = (x, y, side = 3, color = "#0000ff") => {
+            x *= sc;
+            y *= sc;
+            ctx.fillStyle = color
+            ctx.fillRect(x - side / 2, y - side / 2, side, side)
+        }
+
+        const linea = (x0, y0, x1, y1) => {
+            ctx.beginPath()
+            ctx.moveTo(x0, y0)
+            ctx.lineTo(x1, y1)
+            ctx.stroke()
+            ctx.closePath()
+        }
+
+        pianoCartesiano()
+        window.addEventListener("resize", () => {
+            pianoCartesiano()
+            main()
+        })
+
+        function pianoCartesiano() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.translate(Math.round(innerWidth / 2), Math.round(innerHeight / 2))
+            ctx.scale(1, -1)
+            // Quadretti
+            ctx.lineWidth = 0.1
+            for (let i = 0; i < innerWidth; i += sc) {
+                linea(i, 0, i + 1, innerHeight / 2)
+                linea(i, 0, i + 1, -innerHeight / 2)
+            }
+            for (let i = 0; i > -innerWidth; i -= sc) {
+                linea(i, 0, i + 1, innerHeight / 2)
+                linea(i, 0, i + 1, -innerHeight / 2)
+            }
+            for (let i = 0; i < innerHeight; i += sc) {
+                linea(0, i, innerWidth, i + 1)
+                linea(0, i, -innerWidth, i + 1)
+            }
+            for (let i = 0; i > -innerHeight; i -= sc) {
+                linea(0, i, innerWidth, i + 1)
+                linea(0, i, -innerWidth, i + 1)
+            }
+
+            ctx.lineWidth = 2
+            linea(-innerWidth / 2, 0, innerWidth / 2, 0)
+            linea(0, -innerWidth / 2, 0, innerWidth / 2)
+
+        }
+    </script>
+    <script src="script.js"></script>
+</body>
+
+</html>
