@@ -4,6 +4,7 @@
 # C/C++
 **.exe
 **.out
+**/build
 
 # JS/TS
 **/node_modules
