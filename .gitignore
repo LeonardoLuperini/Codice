@@ -5,6 +5,7 @@
 **.exe
 **.out
 **/build
+**/.ccls-cache
 
 # JS/TS
 **/node_modules
