@@ -17,6 +17,7 @@ typedef struct {
 	Node* nodes;
 } Graph;
 
+int numNodes(FILE* f, int* n);
+void insNodes(FILE* f, Graph* g);
 Graph load(char* file);
 void save(Graph, char*);
-

@@ -1,13 +1,37 @@
 #include "grafo.h"
 
-int main() {
-	Graph g = load("grafo.txt");
+int numNodes(FILE* f, int* n) {
+	return fscanf( f, "%d", n);
+}
 
-	//Calcolo roba
+void insNodes (FILE* f, Graph* g) {
+	for (int i = 0; i < g->N; i++) {
+		fscanf(f, "%d", &g->nodes[i].val);
+		g->nodes[i].adjList = NULL;
+	}
+}
+
+void insEdge(Graph* g, int n, int d, float w) {
+	Edge* edge = (Edge*) malloc(sizeof(Edge));
+	edge->dest = d;                                                                                                                                                    
+	edge->w = w;
+	edge->next = (*g).nodes[n].adjList;
+	g->nodes[n].adjList = edge;
+
+
+
+	if ((*g).nodes[n].adjList == NULL) {
+		
+	}
+}
+
+void insEdges(FILE* f, Graph* g) {
+	int s, e;
+	float w;
 	
-	save(g, "nuovo-grafo.txt");
-
-	return EXIT_SUCCESS;
+	while (fscanf(f, "%d %d %f", &s, &e, &w) == 3) {
+		insEdge(g, s, e, w);	
+	}
 }
 
 Graph load(char* file) {
@@ -15,24 +39,19 @@ Graph load(char* file) {
 	
 	if(input) {
 		Graph g;
-		fscanf(input, "%d", &g.N);
+		
+		numNodes(input, &g.N);
 
 		g.nodes = (Node*) malloc(g.N * sizeof(Node));
+		if (! g.nodes) exit(1);
 		
-		for (int i = 0; i < g.N; i++) {
-			fscanf(input, "%d", g.nodes[i].val);
-			g.nodes[i].adjList = NULL;
-		}
+		insNodes(input, &g);
+		
+		insEdges(input, &g);
 
-		int n1, n2;
-		float w;
-		while (fscanf(input, "%d %d %f", n1, n2, w) == 3) {
-
-		}
-
+		return g;
 	}
-
-	return g;
+	else exit(1);
 }
 
 void save(Graph g, char* file) {
