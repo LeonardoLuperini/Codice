@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -11,7 +12,20 @@ typedef struct {
 	int voto;
 } Studente;
 
-void ordinaStudenti(Studente* a);
+void ordinaStudenti(Studente* a, size_t n);
+
+int cmpNomeStud(void const *a, void const *b) { 
+    Studente* aa = (Studente*)a;
+    Studente* bb = (Studente*)b;
+
+    return strcmp(aa->nome, bb->nome);
+}
+
+int cmpVotoStud(void const *a, void const *b) { 
+    Studente* aa = (Studente*)a;
+    Studente* bb = (Studente*)b;
+
+}
 
 int main() {
 	Studente res[N];
@@ -51,7 +65,16 @@ int main() {
 	}
 
 	//ordino l'array
-	ordinaStudenti(res);
+	ordinaStudenti(res, sv);
 	
-	//stampiamo il risultato
+	//stampiamo il risultatoi
+	int primo;
+	int secondo;
+	for (int i = 2; i < sv; i++) {
+
+	}
+}
+
+void ordinaStudenti(Studente* a, size_t n) {
+	qsort(a, n, sizeof(Studente), cmpstud);
 }
