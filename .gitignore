@@ -4,6 +4,7 @@
 # C/C++
 **.exe
 **.out
+**.o
 **/build
 **/.ccls-cache
 
