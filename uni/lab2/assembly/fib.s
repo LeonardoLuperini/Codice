@@ -1,35 +1,24 @@
-.text
-.global main
+	.text
+	.global fib
+	.type fib, %function
 
-main:	PUSH {LR}
-		MOV R0, #5
-		
-		BL fib
-		
-		POP {LR}
-		MOV PC, LR
+fib:	push {lr}
 
+	cmp r0, #1	// Caso base
+	pople {pc}
 
-fib:	CMP	R0, #0 // Caso base 0
-		MOVEQ PC, LR
+	sub r0, r0, #1	// r0 = n-1
+	push {r0}	// Salvo n-1
+	bl fib		// Caso ricorsivo n-1
+	pop {r1}	// Riprendo n-1
+	push {r0} 	// Salvo fib(n-1)
+	sub r0, r1, #1 	// r0 = n-2
+	bl fib		// Caso ricorsivo n-2
+	pop {r1}	// Riprendo fib(n-1)
+	add r0, r0, r1	// r0 = fib(n-2) + fib(n-1)
 
-		CMP	R0, #1 // Caso base 1
-		MOVEQ PC, LR
-		
-		PUSH {LR}
+	pop {pc}
 
-		SUB R0, R0, #1
-		PUSH {R0}
-		BL fib
-		PUSH {R0}
+	.data
+str:	.string "il fib di %d è:%d\n"
 
-		POP{R1}
-		SUB R0, R1, #1
-		PUSH{LR}
-		BL fib
-		POP{R1}
-
-		ADD R0, R0, R1
-
-		POP {LR}		
-		MOV PC, LR
