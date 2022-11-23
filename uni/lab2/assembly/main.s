@@ -2,19 +2,27 @@
 	.global main
 	.type main, %function
 	
-main:	push {lr}
-	
-	ldr r0, [r1, #4]
-	bl atoi
-	push {r0}
-	bl fib
-	
-	mov r2, r0
-	pop {r1}
-	ldr r0, =fmt
-	bl printf
+main:	push {r4-r7, lr}
+	mov r5, r0		// argc in r5
+	mov r4, r1		// argv in r4
+	mov r7, #0
 
-	pop {pc}
+loops:	ldr r6, [r4]		// cicla le stringhe
+	mov r2, #0
+
+loopc:	ldrb r7, [r6], #1		
+	cmp r7, #0
+	addne r2, #1
+	bne loopc
+
+	ldr r1, [r4], #4
+	ldr r0, =fmt
+	bl printf		
+	subs r5, #1		// r5-- e setto i flag
+	bne loops
+	
+
+	pop {r4-r7, pc}
 
 	.data
-fmt:	.string "fib di %d è %d\n"
+fmt:	.string "la stringa %s è lunga %d caratteri\n"
