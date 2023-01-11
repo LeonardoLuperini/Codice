@@ -16,6 +16,10 @@
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
+# Ocaml
+**.cmx
+**.cmi
+**.o
 
 # --- C/C++ ---
 **.exe
