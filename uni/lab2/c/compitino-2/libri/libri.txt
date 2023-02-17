@@ -1,0 +1,8 @@
+The Linux Programming Interface,Kerrisk,2010,0
+The C programming language, Kernighan and Ritchie,1988,0
+The Linux Programming Interface,Kerrisk,2000,5
+Introduction to algorithms,Cormen,2005,0
+The C programming language, Kernighan and Ritchie,1995,1
+Introduction to algorithms,Cormen,2009,10
+Advanced Programming in the Unix Environment, Stevens and Rago,1992,15
+Advanced Programming in the Unix Environment, Stevens and Rago,1982,7
