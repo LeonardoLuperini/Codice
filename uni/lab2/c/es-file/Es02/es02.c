@@ -13,19 +13,7 @@ typedef struct {
 } Studente;
 
 void ordinaStudenti(Studente* a, size_t n);
-
-int cmpNomeStud(void const *a, void const *b) { 
-    Studente* aa = (Studente*)a;
-    Studente* bb = (Studente*)b;
-
-    return strcmp(aa->nome, bb->nome);
-}
-
-int cmpVotoStud(void const *a, void const *b) { 
-    Studente* aa = (Studente*)a;
-    Studente* bb = (Studente*)b;
-
-}
+int cmpNomeStud(void const *a, void const *b);
 
 int main() {
 	Studente res[N];
@@ -45,7 +33,6 @@ int main() {
 			} else if (!strcmp(res[i].nome, n2)) {
 				res[i].nome++;
 				is_in2 = true; 
-
 			} 
 		}
 
@@ -67,14 +54,19 @@ int main() {
 	//ordino l'array
 	ordinaStudenti(res, sv);
 	
-	//stampiamo il risultatoi
-	int primo;
-	int secondo;
-	for (int i = 2; i < sv; i++) {
+	//stampiamo il risultato
+	
 
-	}
+	fclose(f);
+}
+
+int cmpNomeStud(void const *a, void const *b) { 
+    Studente* aa = (Studente*)a;
+    Studente* bb = (Studente*)b;
+
+    return strcmp(aa->nome, bb->nome);
 }
 
 void ordinaStudenti(Studente* a, size_t n) {
-	qsort(a, n, sizeof(Studente), cmpstud);
+	qsort(a, n, sizeof(Studente), cmpNomeStud);
 }
