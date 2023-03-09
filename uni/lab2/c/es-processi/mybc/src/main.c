@@ -25,6 +25,19 @@
 
 #define BTOS(x) ((x) ? "true" : "false")
 
+bool readpi(int fd, void* msg, size_t msglen) {
+	bool eof = false;
+	ssize_t res;
+	size_t n = 0;
+
+	do {
+		res = read(fd, msg, msglen - n);
+		CHECK_READ(res, eof, n);
+	} while (n < msglen && !eof);	
+
+	return eof;
+}
+
 int main(void) {
 	pid_t pid;
 	int padrefiglio[2], figliopadre[2];
@@ -34,38 +47,22 @@ int main(void) {
 
 	CHECK_ERROR((pid = fork()), -1, "Errore fork")
 
-	if (pid == 0) {
+	if (pid == 0) { //FIGLIO
 		close(padrefiglio[1]);
 		close(figliopadre[0]);
 
-		size_t len = 0;
-		size_t n = 0;
-		size_t maxmsglen;
-		bool eof = false;
+		size_t len;
+		bool eof;
 		char* str = NULL;
-		ssize_t readres;
 
 		while(true) {
-			n = 0;
-			maxmsglen = sizeof(size_t);
-			do {
-				readres = read(padrefiglio[0], &len, maxmsglen - n);
-				CHECK_READ(readres, eof, n);
-			} while (n < maxmsglen && !eof);	
+			eof = readpi(padrefiglio[0], &len, sizeof(len));
 			if (eof) break;
 			
-			fprintf(stderr,"len: %lu\n", len);
-
 			CHECK_ERROR((str = (char*)realloc(str, len * sizeof(char))), NULL, "Errore realloc");
 			
-			n = 0;
-			maxmsglen = len * sizeof(char);
-			do {
-				readres = read(padrefiglio[0], &str[n], maxmsglen - n);
-				CHECK_READ(readres, eof, n);
-			} while (n < maxmsglen && !eof);	
+			eof = readpi(padrefiglio[0], str, len * sizeof(char));
 			if (eof) break;
-			
 			fprintf(stderr, "str: %s\n", str);
 		}
 
@@ -73,7 +70,7 @@ int main(void) {
 		close(padrefiglio[0]);
 		close(figliopadre[1]);
 	}
-	else {
+	else { //PADRE
 		close(padrefiglio[0]);
 		close(figliopadre[1]);
 		
