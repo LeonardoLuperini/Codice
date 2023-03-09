@@ -3,27 +3,29 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <time.h>
 
-int main() {
-	int status;
+#define C 5
+
+int main(void) {
 	pid_t pid;
+
+	srand(time(NULL));
 	
-	switch (pid = fork()) {
-		case -1: 
-			perror("Errore fork");
-			break;
-		case 0:
-			printf("%d: eseguendo il figlio\n", getgid());
-			break;
-		default:
-			sleep(10);
-			if(waitpid(pid, &status, 0) == -1) {
-				perror("Errore nella wait");
-				exit(2);
-			}
-			printf("%d: il figlio ha finito con status %d\n",
-					getpid(), WEXITSTATUS(status));
-			break;
+	for (int i = 0; i < C; i++) {
+		switch (pid = fork()) {
+			case -1: 
+				perror("Errore fork");
+				break;
+			case 0:
+				fprintf(stderr, "%d: Partito\n", getgid());
+				sleep(rand()%10);
+				return EXIT_SUCCESS;
+		}
+	}
+	
+	for (int i = 0; i < C; i++) {
+		wait(NULL);
 	}
 
 	return EXIT_SUCCESS;
