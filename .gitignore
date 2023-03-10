@@ -27,6 +27,7 @@
 **.out
 **.o
 **/build
+**/obj
 **/.ccls-cache
 
 
