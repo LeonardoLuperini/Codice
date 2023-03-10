@@ -25,6 +25,7 @@ int main(void) {
 	EXIT_ERROR(fd, -1, "Error shm_open");
 	EXIT_ERROR(ftruncate(fd, sizeof(size_t)), -1, "Error ftruncate");
 	ptr_counter = mmap(NULL, sizeof(size_t), PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
+	EXIT_ERROR(sem, MAP_FAILED, "Error mmap");
 	(*ptr_counter) = 0;
 	close(fd);
 
