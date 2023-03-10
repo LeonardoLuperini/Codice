@@ -14,25 +14,6 @@
 #define CHECK_OPEND(res) CHECK_ERROR(res, NULL, "Error opendir")
 #define CHECK_CLOSED(res) CHECK_ERROR(res, -1, "Error closedir")
 
-#define GET_PATHDIR(pathdir) \
-	if (argc > 2) {\
-		printf("Error the correct syntax is: %s <directory>\n", argv[0]);\
-		exit(-1);\
-	}\
-	else if (argc == 2) {\
-		if ((pathdir = malloc(strlen(argv[1]) * sizeof(char) * 2)) == NULL) {\
-			fprintf(stderr, "Error: the path is too long\n");\
-			exit(EXIT_FAILURE);\
-		}\
-		strcpy(pathdir, argv[1]);\
-	}\
-	else {\
-		if ((pathdir = malloc(BUFLEN)) == NULL) {\
-			fprintf(stderr, "Error: not enough memory\n");\
-			exit(EXIT_FAILURE);\
-		}\
-		strcpy(pathdir, ".");\
-	}
 
 #define IS_DIR(file) (file->d_type == DT_DIR)
 #define IS_FILE(file) (file->d_type == DT_REG)

@@ -1,9 +1,20 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <time.h>
+#include <semaphore.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <ctype.h>
 #include "file.h"
 #include "statistic.h"
 
-/* SCRIVERO' IN INGLESE PERCHE' MI TROVO MEGLIO
- * (NO, NON HO COPIATO DA INTERNET XD)
- */
+#define MAX_NAME_LEN 384 //nome del file o linghezza totale del path?
+#define SHM_NAME "/shmlluperini5"
+#define CORRECT_SINTAX_MSG(name) printf("The correct syntax is:\n\t%s <directory> <n. worker> <dim. buffer>\n", name);
 
 #define NPRINTF(s, n)\
 	for(int i = 0; i < n; i++) {\
@@ -11,88 +22,70 @@
 	}\
 	printf("\n");
 
-#define CHECK_NEED_REALLOCARRAY(array, maxn, n, type)\
-	if (n == maxn) {\
-		CHECK_ERROR((array = reallocarray(array, maxn += 2, sizeof(type))), NULL, "Error realloc");\
+#define PRINT_HEADER()\
+	printf("%-10s %-10s %-10s %-20s\n", "n", "avg", "std", "file");\
+	NPRINTF("-", 50);
+
+#define EXIT_ERROR(val, errval, msg) if ((val) == (errval)) { perror((msg)); exit(EXIT_FAILURE);}
+
+static bool issize(char* str) {
+	while (*str) {
+		if (!isdigit(*str)) return false;
+		str++;
 	}
-
-void filetoarray(char* path, double* numbers, size_t* maxn, size_t* n);
-void filehandle(char* path); 
-void dirhandle(char* path);
-void recbody(char* path);
-
+	return true;
+}
 
 int main(int argc, char* argv[]) {
 	char* path;
-	GET_PATHDIR(path);
-	
-	printf("%-10s %-10s %-10s %-20s\n", "n", "avg", "std", "file");
-	NPRINTF("-", 50);	
-	
-	recbody(path);
+	size_t W;
+	size_t N;
+	char** bb;
+	size_t bbsize;
+	sem_t* mutex;
+	sem_t* empty;
+	sem_t* full;
 
-	free(path);
-	return 0;
-}
-
-void filetoarray(char* path, double* numbers, size_t* maxn, size_t* n) {
-	FILE* f;
-	char* linebuf = NULL;
-	char* test = NULL;
-	size_t linelen = 0;
-	int res;
-
-	CHECK_FOPEN((f = fopen(path, "r")));
-	for ((*n) = 0; !feof(f);) {
-		CHECK_GETLINE((res = getline(&linebuf, &linelen, f)));
-		if (res == -1) break;	
-		CHECK_NEED_REALLOCARRAY(numbers, (*maxn), (*n), double);
-		numbers[(*n)] = strtod(linebuf, &test);
-		if (numbers[(*n)] != 0 && linebuf != test) (*n)++;
+	// Checking argc, arv[2] and argv[3] and than assgning path, W and N
+	if (argc != 4) {
+		CORRECT_SINTAX_MSG(argv[0]);
+		exit(EXIT_FAILURE);
 	}
-	free(linebuf);
-	fclose(f);
-}
+	else {
+		path = argv[1];
 
-void filehandle(char* path) {
-	struct dirent* file;
-	char* filepath = NULL;
-	size_t maxn = 1024;
-	size_t n;
-	double* numbers;
-	DIR* d;
-
-	CHECK_OPEND((d = opendir(path)));
-	printf("dir:%s\n", path);
-	CHECK_ERROR((numbers = calloc(maxn, sizeof(double))), NULL, "Error calloc");
-	while ((errno = 0, file = readdir(d)) != NULL) {
-		if (IS_FILE(file)) {
-			CONCAT_PATH(path, file->d_name, filepath);
-			filetoarray(filepath, numbers, &maxn, &n);
-			printf("%-5lu %-10lf %-10lf %-20s\n", n, avg(numbers, n), std(numbers, n), file->d_name);
+		if (!issize(argv[2])) {
+			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
+			exit(EXIT_FAILURE);
 		}
+		sscanf(argv[2], "%lu", &W);
+		
+		if (!issize(argv[3])) {
+			fprintf(stderr, "%s is not a valid size!\n", argv[3]);
+			CORRECT_SINTAX_MSG(argv[0]);
+			exit(EXIT_FAILURE);
+		}
+		sscanf(argv[3], "%lu", &N);
 	}
-	free(numbers);
-	free(filepath);
-	CHECK_CLOSED(closedir(d));
-}
 
-void dirhandle(char* path) {
-	struct dirent* file;
-	char* newpath = NULL;
-	DIR* d;
+	printf("path: %s\nW: %lu\nN: %lu\n", path, W, N);
 
-	CHECK_OPEND((d = opendir(path)));
-	while ((errno = 0, file = readdir(d)) != NULL) 
-		if (NOT_THIS_DIR(file->d_name) && NOT_PREV_DIR(file->d_name) && IS_DIR(file)){
-			CONCAT_PATH(path, file->d_name, newpath);
-			recbody(newpath);
-		}
-	CHECK_CLOSED(closedir(d));
-	free(newpath);
-}
+	// Creation of the bounded buffer
+	bbsize = (N+2) * sizeof(char) * MAX_NAME_LEN;
+	int fd = shm_open(SHM_NAME, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
+	EXIT_ERROR(fd, -1, "Error shm_open");
+	EXIT_ERROR(ftruncate(fd, bbsize), -1, "Error ftruncate");
+	close(fd);
+	bb = mmap(NULL, bbsize, PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
+	EXIT_ERROR(mutex, MAP_FAILED, "Error mmap");
 
-void recbody(char* path) {
-	filehandle(path);
-	dirhandle(path);
+	// Creation of the three semaphores 
+	mutex = mmap(NULL, sizeof(sem_t),
+			PROT_READ|PROT_WRITE,
+			MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+	EXIT_ERROR(mutex, MAP_FAILED, "Error mmap");
+	sem_init(mutex, 1, 1);
+
+	shm_unlink(SHM_NAME);
+	return EXIT_SUCCESS;
 }

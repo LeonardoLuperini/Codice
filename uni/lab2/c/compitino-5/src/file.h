@@ -9,7 +9,7 @@
 
 #define BUFLEN 	1024
 
-#define CHECK_ERROR(res, v, msg) if (res == v) {perror(msg); exit(EXIT_FAILURE);} 
+#define CHECK_ERROR(val, errval, msg) if ((res) == (errval)) {perror((msg)); exit(EXIT_FAILURE);} 
 #define CHECK_FOPEN(res) CHECK_ERROR(res, NULL, "Error fopen")
 #define CHECK_OPEND(res) CHECK_ERROR(res, NULL, "Error opendir")
 #define CHECK_CLOSED(res) CHECK_ERROR(res, -1, "Error closedir")
