@@ -43,13 +43,6 @@ typedef struct {
 	char 	strings[][MAX_NAME_LEN];
 } bb_t;
 
-static bool issize(char* str) {
-	while (*str) {
-		if (!isdigit(*str)) return false;
-		str++;
-	}
-	return true;
-}
 
 void put(char* str, bb_t* bb) {
 	sem_wait(bb->full);
@@ -73,59 +66,65 @@ void get(char* str, bb_t* bb) {
 
 void scanfs(char* path, bb_t* bb);
 
+void file_to_array(char* path, double* numbers, size_t* actual_len, size_t* index) {
+	FILE* f;
+	char* linebuf = NULL;
+	char* test = NULL;
+	size_t linelen = 0;
+	int resgetline;
+
+	EXIT_ERROR(f = fopen(path, "r"), NULL, "Error fopen");
+	for (*index = 0; !feof(f);) {
+		CHECK_GETLINE(resgetline = getline(&linebuf, &linelen, f));
+		if (resgetline == -1) break;	
+		if (*index == *actual_len) {
+			numbers = reallocarray(numbers, *actual_len += 2, sizeof(double));
+			EXIT_ERROR(numbers, NULL, "Error realloc");
+		}
+		numbers[(*index)] = strtod(linebuf, &test);
+		if (numbers[(*index)] != 0 && linebuf != test) (*index)++;
+	}
+	if (linebuf != NULL) free(linebuf);
+	fclose(f);
+}
+
 void worker(bb_t* bb) {
 	char filepath[MAX_NAME_LEN];
+	double* numbers = NULL;
+	size_t actual_len = 0;
+	size_t len = 0;
+
 	fprintf(stderr, "Ciao sono il worker n. %d\n", getpid());
 	loop {
+		len = 0;
 		get(filepath, bb);
 		if (!strcmp(filepath, STOP_SIGNAL)) break;
 		fprintf(stderr, "worker (%d): il path che ho letto è %s\n", getpid(), filepath);
+		file_to_array(filepath, numbers, &actual_len, &len);
 	}
+	if (numbers != NULL) free(numbers);
 	exit(EXIT_SUCCESS);
 }
+
+static bool str_is_size(char* str) {
+	while (*str) {
+		if (!isdigit(*str)) return false;
+		str++;
+	}
+	return true;
+}
+
+void static get_cli_input(int argc, char** argv, char* path, size_t* W, size_t* N);
 
 int main(int argc, char* argv[]) {
 	char path[MAX_NAME_LEN];
 	size_t W;
 	size_t N; //n. of element of bb
 	bb_t* bb;
-
 	pid_t pid;
 
 	// Checking argc, arv[2] and argv[3] and than assgning path, W and N
-	if (argc != 4) {
-		CORRECT_SINTAX_MSG(argv[0]);
-		exit(EXIT_FAILURE);
-	}
-	else {
-		strcpy(path, argv[1]);
-
-		if (!issize(argv[2])) {
-			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
-			CORRECT_SINTAX_MSG(argv[0]);
-			exit(EXIT_FAILURE);
-		}
-		sscanf(argv[2], "%lu", &W);
-		if (W == 0) {
-			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
-			CORRECT_SINTAX_MSG(argv[0]);
-			exit(EXIT_FAILURE);
-		}
-		
-		if (!issize(argv[3])) {
-			fprintf(stderr, "%s is not a valid size!\n", argv[3]);
-			CORRECT_SINTAX_MSG(argv[0]);
-			exit(EXIT_FAILURE);
-		}
-		sscanf(argv[3], "%lu", &N);
-		if (N == 0) {
-			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
-			CORRECT_SINTAX_MSG(argv[0]);
-			exit(EXIT_FAILURE);
-		}
-	}
-
-	//printf("path: %s\nW: %lu\nN: %lu\n", path, W, N);
+	get_cli_input(argc, argv, path, &W, &N);
 
 	// Creation of the bounded buffer
 	// Pointer to the bounded buffer
@@ -163,19 +162,6 @@ int main(int argc, char* argv[]) {
 	EXIT_ERROR(bb->full, MAP_FAILED, "Error mmap");
 	sem_init(bb->full, 1, N);
 
-	/*	
-	printf("bb_t: %lu\n", sizeof(bb_t));
-	printf("bb: %lu\n", sizeof(*bb));
-	printf("bb->len: %lu\n", sizeof(bb->len));
-	printf("bb->head: %lu\n", sizeof(*bb->head));
-	printf("bb->tail: %lu\n", sizeof(*bb->tail));
-	printf("bb->mutex: %lu\n", sizeof(*bb->mutex));
-	for(int i = 0; i < N; i++) {
-		printf("bb->strings[%d]: %lu\n", i, sizeof(bb->strings[i]));
-		strcpy(bb->strings[i], "ciao");
-	}
-	*/
-
 	// Worker generation
 	for (int i = 0; i < W; i++) {
 		EXIT_ERROR(pid = fork(), -1, "Error fork");
@@ -191,11 +177,13 @@ int main(int argc, char* argv[]) {
 		return EXIT_SUCCESS;
 	}
 
+	//***************** SERVER *****************
 	scanfs(path, bb);
 
 	for (int i = 0; i < W; i++) {
 		put(STOP_SIGNAL, bb);
 	}
+	//******************************************
 	
 	// Spring cleaning
 	for (int i = 0; i < W + 1; i++) {
@@ -213,12 +201,16 @@ void scanfs(char* path, bb_t* bb) {
 	DIR* d;
 	struct dirent* file;
 	char newpath[MAX_NAME_LEN];
+	char* ext;
 
 	EXIT_ERROR(d = opendir(path), NULL, "Error opendir");
 	while ((errno = 0, file = readdir(d)) != NULL) {
 		if IS_FILE(file) {
-			concat_path(path, file->d_name, newpath);
-			put(newpath, bb);
+			ext = strrchr(file->d_name, '.');
+			if (ext != NULL && strcmp(ext, ".dat") == 0) {
+				concat_path(path, file->d_name, newpath);
+				put(newpath, bb);
+			}
 		}
 	}
 	closedir(d);
@@ -231,4 +223,39 @@ void scanfs(char* path, bb_t* bb) {
 		}
 	}
 	closedir(d);
+}
+
+void static get_cli_input(int argc, char** argv, char* path, size_t* W, size_t* N) {
+	if (argc != 4) {
+		CORRECT_SINTAX_MSG(argv[0]);
+		exit(EXIT_FAILURE);
+	}
+	else {
+		strcpy(path, argv[1]);
+
+		if (!str_is_size(argv[2])) {
+			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
+			CORRECT_SINTAX_MSG(argv[0]);
+			exit(EXIT_FAILURE);
+		}
+		sscanf(argv[2], "%lu", W);
+		if (*W == 0) {
+			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
+			CORRECT_SINTAX_MSG(argv[0]);
+			exit(EXIT_FAILURE);
+		}
+		
+		if (!str_is_size(argv[3])) {
+			fprintf(stderr, "%s is not a valid size!\n", argv[3]);
+			CORRECT_SINTAX_MSG(argv[0]);
+			exit(EXIT_FAILURE);
+		}
+		sscanf(argv[3], "%lu", N);
+		if (*N == 0) {
+			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
+			CORRECT_SINTAX_MSG(argv[0]);
+			exit(EXIT_FAILURE);
+		}
+	}
+
 }

@@ -12,12 +12,13 @@
 
 #define IS_DIR(file) (file->d_type == DT_DIR)
 #define IS_FILE(file) (file->d_type == DT_REG)
+#define IS_FILE(file) (file->d_type == DT_REG)
 
 #define NOT_THIS_DIR(name) (strcmp(name, ".") != 0)
 #define NOT_PREV_DIR(name) (strcmp(name, "..") != 0)
 
 
 #define CHECK_GETLINE(res)\
-	if (res == -1 && !feof(f)) {perror("Error getline"); exit(EXIT_FAILURE);}
+	if ((res) == -1 && !feof(f)) {perror("Error getline"); exit(EXIT_FAILURE);}
 
 void concat_path(char* path, char* name, char* newpath);
