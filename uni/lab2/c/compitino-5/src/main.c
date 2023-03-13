@@ -16,7 +16,6 @@
 #define SHM_NAME "/shmlluperini5" //LO UTULIZZO ANCORA?!?!?!?!?!?
 #define STOP_SIGNAL "stop"
 #define CORRECT_SINTAX_MSG(name) printf("The correct syntax is:\n\t%s <directory> <n. worker> <dim. buffer>\n", name);
-#define loop while (1)
 
 #define NPRINTF(s, n)\
 	for(int i = 0; i < n; i++) {\
@@ -30,8 +29,8 @@
 
 #define EXIT_ERROR(val, errval, msg) if ((val) == (errval)) { perror((msg)); exit(EXIT_FAILURE);}
 
-#define WORKER(pid) (pid == 0)
-#define COLLECTOR(pid) (pid == 0)
+#define IS_WORKER(pid) (pid == 0)
+#define IS_COLLECTOR(pid) (pid == 0)
 
 typedef struct {
 	sem_t* 	full; 	//n. of element before bb is full
@@ -43,78 +42,20 @@ typedef struct {
 	char 	strings[][MAX_NAME_LEN];
 } bb_t;
 
+typedef struct {
+	sem_t* mutex;
+	int p[2];
+} exp_t; // exp_t stand for EXclusive Pipe Type
 
-void put(char* str, bb_t* bb) {
-	sem_wait(bb->full);
-	sem_wait(bb->mutex);
-	strcpy(bb->strings[*bb->tail], str);
-	*bb->tail = (*bb->tail + 1) % bb->len;
-	//fprintf(stderr, "Ho inserito: %s\n", str);
-	sem_post(bb->empty);
-	sem_post(bb->mutex);
-}
-
-void get(char* str, bb_t* bb) {
-	//fprintf(stderr, "worker (%d): sono nel get\n", getpid());
-	sem_wait(bb->empty);
-	sem_wait(bb->mutex);
-	strcpy(str, bb->strings[*bb->head]);
-	*bb->head = (*bb->head + 1) % bb->len;
-	sem_post(bb->full);
-	sem_post(bb->mutex);
-}
-
+void put(char* str, bb_t* bb);
+void get(char* str, bb_t* bb);
 void scanfs(char* path, bb_t* bb);
+void worker(bb_t* bb, exp_t* exp);
+void collector(exp_t* exp);
 
-void file_to_array(char* path, double* numbers, size_t* actual_len, size_t* index) {
-	FILE* f;
-	char* linebuf = NULL;
-	char* test = NULL;
-	size_t linelen = 0;
-	int resgetline;
-
-	EXIT_ERROR(f = fopen(path, "r"), NULL, "Error fopen");
-	for (*index = 0; !feof(f);) {
-		CHECK_GETLINE(resgetline = getline(&linebuf, &linelen, f));
-		if (resgetline == -1) break;	
-		if (*index == *actual_len) {
-			numbers = reallocarray(numbers, *actual_len += 2, sizeof(double));
-			EXIT_ERROR(numbers, NULL, "Error realloc");
-		}
-		numbers[(*index)] = strtod(linebuf, &test);
-		if (numbers[(*index)] != 0 && linebuf != test) (*index)++;
-	}
-	if (linebuf != NULL) free(linebuf);
-	fclose(f);
-}
-
-void worker(bb_t* bb) {
-	char filepath[MAX_NAME_LEN];
-	double* numbers = NULL;
-	size_t actual_len = 0;
-	size_t len = 0;
-
-	fprintf(stderr, "Ciao sono il worker n. %d\n", getpid());
-	loop {
-		len = 0;
-		get(filepath, bb);
-		if (!strcmp(filepath, STOP_SIGNAL)) break;
-		fprintf(stderr, "worker (%d): il path che ho letto è %s\n", getpid(), filepath);
-		file_to_array(filepath, numbers, &actual_len, &len);
-	}
-	if (numbers != NULL) free(numbers);
-	exit(EXIT_SUCCESS);
-}
-
-static bool str_is_size(char* str) {
-	while (*str) {
-		if (!isdigit(*str)) return false;
-		str++;
-	}
-	return true;
-}
-
-void static get_cli_input(int argc, char** argv, char* path, size_t* W, size_t* N);
+static void get_cli_input(int argc, char** argv, char* path, size_t* W, size_t* N);
+static bool str_is_size(char* str);
+static bool readpipe(int fd, void* msg, size_t msglen);
 
 int main(int argc, char* argv[]) {
 	char path[MAX_NAME_LEN];
@@ -122,8 +63,9 @@ int main(int argc, char* argv[]) {
 	size_t N; //n. of element of bb
 	bb_t* bb;
 	pid_t pid;
+	exp_t exp; //pipe
 
-	// Checking argc, arv[2] and argv[3] and than assgning path, W and N
+	// Checking argc, argv[2] and argv[3] and than assgning path, W and N
 	get_cli_input(argc, argv, path, &W, &N);
 
 	// Creation of the bounded buffer
@@ -142,8 +84,7 @@ int main(int argc, char* argv[]) {
 	EXIT_ERROR(bb->tail, MAP_FAILED, "Error mmap")
 	*bb->tail = 0;
 
-	
-	// Creation of the three semaphores 
+	// Semaphores creation
 	bb->mutex = mmap(NULL, sizeof(sem_t),
 			PROT_READ|PROT_WRITE,
 			MAP_SHARED|MAP_ANONYMOUS, -1, 0);
@@ -162,22 +103,32 @@ int main(int argc, char* argv[]) {
 	EXIT_ERROR(bb->full, MAP_FAILED, "Error mmap");
 	sem_init(bb->full, 1, N);
 
+	// Exclusive pipe creation
+	EXIT_ERROR(pipe((exp.p)), -1, "Error pipe");
+	
+	exp.mutex = mmap(NULL, sizeof(sem_t),
+			PROT_READ|PROT_WRITE,
+			MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+	EXIT_ERROR(exp.mutex, MAP_FAILED, "Error mmap");
+	sem_init(exp.mutex, 1, 1);
+
 	// Worker generation
 	for (int i = 0; i < W; i++) {
 		EXIT_ERROR(pid = fork(), -1, "Error fork");
-		if WORKER(pid) {
-			worker(bb);
+		if IS_WORKER(pid) {
+			worker(bb, &exp);
 		}
 	}
 
 	// Collector generation
 	EXIT_ERROR(pid = fork(), -1, "Error fork");
-	if COLLECTOR(pid) {
-		fprintf(stderr, "Ciao sono il collector!\n");
-		return EXIT_SUCCESS;
+	if IS_COLLECTOR(pid) {
+		collector(&exp);
 	}
 
 	//***************** SERVER *****************
+	close(exp.p[0]);
+	close(exp.p[1]);
 	scanfs(path, bb);
 
 	for (int i = 0; i < W; i++) {
@@ -225,7 +176,100 @@ void scanfs(char* path, bb_t* bb) {
 	closedir(d);
 }
 
-void static get_cli_input(int argc, char** argv, char* path, size_t* W, size_t* N) {
+void worker(bb_t* bb, exp_t* exp) {
+	char filepath[MAX_NAME_LEN];
+	double* numbers = NULL;
+	size_t actual_len = 0;
+	size_t len = 0;
+	double average;
+	double stddev;
+
+	// Valgrind cry if i don't do this
+	for(int i = 0; i < MAX_NAME_LEN; i++) filepath[i] = '\0';
+
+	close(exp->p[0]);
+
+	while (true) {
+		len = 0;
+		get(filepath, bb);
+		if (!strcmp(filepath, STOP_SIGNAL)) break;
+		file_to_array(filepath, &numbers, &actual_len, &len);
+		average = avg(numbers, len);
+		stddev = std(numbers, len);
+		sem_wait(exp->mutex);
+		EXIT_ERROR(write(exp->p[1], &len, sizeof(size_t)), -1, "Error write");
+		EXIT_ERROR(write(exp->p[1], &average, sizeof(double)), -1, "Error write");
+		EXIT_ERROR(write(exp->p[1], &stddev, sizeof(double)), -1, "Error write");
+		EXIT_ERROR(write(exp->p[1], filepath, MAX_NAME_LEN * sizeof(char)), -1, "Error write");
+		sem_post(exp->mutex);
+	}
+	if (numbers != NULL) free(numbers);
+	close(exp->p[1]);
+	exit(EXIT_SUCCESS);
+}
+
+static bool readpipe(int fd, void* msg, size_t msglen) {
+	bool eof = false;
+	ssize_t res;
+	size_t n = 0;
+
+	do {
+		res = read(fd, msg, msglen - n);
+		CHECK_READ(res, eof, n);
+	} while (n < msglen && !eof);	
+
+	return eof;
+}
+
+void collector(exp_t* exp) {
+	size_t n;
+	double average;
+	double stddev;
+	char path[MAX_NAME_LEN];
+	close(exp->p[1]);
+
+	PRINT_HEADER();
+
+	while (true) {
+		if (readpipe(exp->p[0], &n, sizeof(size_t))) break;
+		readpipe(exp->p[0], &average, sizeof(double));
+		readpipe(exp->p[0], &stddev, sizeof(double));
+		readpipe(exp->p[0], &path, MAX_NAME_LEN * sizeof(char));
+		printf("%-5lu %-10lf %-10lf %-20s\n", n, average, stddev, path);
+		fflush(stdout);
+	}
+	
+	close(exp->p[0]);
+	exit(EXIT_SUCCESS);
+}
+
+void put(char* str, bb_t* bb) {
+	sem_wait(bb->full);
+	sem_wait(bb->mutex);
+	strcpy(bb->strings[*bb->tail], str);
+	*bb->tail = (*bb->tail + 1) % bb->len;
+	sem_post(bb->empty);
+	sem_post(bb->mutex);
+}
+
+void get(char* str, bb_t* bb) {
+	sem_wait(bb->empty);
+	sem_wait(bb->mutex);
+	strcpy(str, bb->strings[*bb->head]);
+	*bb->head = (*bb->head + 1) % bb->len;
+	sem_post(bb->full);
+	sem_post(bb->mutex);
+}
+
+static bool str_is_size(char* str) {
+	while (*str) {
+		if (!isdigit(*str)) return false;
+		str++;
+	}
+	return true;
+}
+
+static void get_cli_input(int argc, char** argv, char* path, size_t* W, size_t* N) {
 	if (argc != 4) {
 		CORRECT_SINTAX_MSG(argv[0]);
 		exit(EXIT_FAILURE);
