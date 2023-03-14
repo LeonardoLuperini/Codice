@@ -12,7 +12,7 @@
 #include "file.h"
 #include "statistic.h"
 
-#define MAX_NAME_LEN 384 //nome del file o linghezza totale del path? E' anche in file.h
+#define MAX_NAME_LEN 384
 #define SHM_NAME "/shmlluperini5" //LO UTULIZZO ANCORA?!?!?!?!?!?
 #define STOP_SIGNAL "stop"
 #define CORRECT_SINTAX_MSG(name) printf("The correct syntax is:\n\t%s <directory> <n. worker> <dim. buffer>\n", name);
@@ -47,11 +47,18 @@ typedef struct {
 	int p[2];
 } exp_t; // exp_t stand for EXclusive Pipe Type
 
+typedef struct {
+	size_t n;
+	double avg;
+	double std;
+	char path[MAX_NAME_LEN];
+} data_t;
+
 void put(char* str, bb_t* bb);
 void get(char* str, bb_t* bb);
 void scanfs(char* path, bb_t* bb);
-void worker(bb_t* bb, exp_t* exp);
-void collector(exp_t* exp);
+void worker(bb_t* bb, int p[]);
+void collector(int p[]);
 
 static void get_cli_input(int argc, char** argv, char* path, size_t* W, size_t* N);
 static bool str_is_size(char* str);
@@ -63,7 +70,7 @@ int main(int argc, char* argv[]) {
 	size_t N; //n. of element of bb
 	bb_t* bb;
 	pid_t pid;
-	exp_t exp; //pipe
+	int p[2]; //pipe
 
 	// Checking argc, argv[2] and argv[3] and than assgning path, W and N
 	get_cli_input(argc, argv, path, &W, &N);
@@ -104,31 +111,25 @@ int main(int argc, char* argv[]) {
 	sem_init(bb->full, 1, N);
 
 	// Exclusive pipe creation
-	EXIT_ERROR(pipe((exp.p)), -1, "Error pipe");
+	EXIT_ERROR(pipe(p), -1, "Error pipe");
 	
-	exp.mutex = mmap(NULL, sizeof(sem_t),
-			PROT_READ|PROT_WRITE,
-			MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-	EXIT_ERROR(exp.mutex, MAP_FAILED, "Error mmap");
-	sem_init(exp.mutex, 1, 1);
-
 	// Worker generation
 	for (int i = 0; i < W; i++) {
 		EXIT_ERROR(pid = fork(), -1, "Error fork");
 		if IS_WORKER(pid) {
-			worker(bb, &exp);
+			worker(bb, p);
 		}
 	}
 
 	// Collector generation
 	EXIT_ERROR(pid = fork(), -1, "Error fork");
 	if IS_COLLECTOR(pid) {
-		collector(&exp);
+		collector(p);
 	}
 
 	//***************** SERVER *****************
-	close(exp.p[0]);
-	close(exp.p[1]);
+	close(p[0]);
+	close(p[1]);
 	scanfs(path, bb);
 
 	for (int i = 0; i < W; i++) {
@@ -176,35 +177,27 @@ void scanfs(char* path, bb_t* bb) {
 	closedir(d);
 }
 
-void worker(bb_t* bb, exp_t* exp) {
-	char filepath[MAX_NAME_LEN];
+void worker(bb_t* bb, int p[]) {
+	data_t d;
 	double* numbers = NULL;
 	size_t actual_len = 0;
-	size_t len = 0;
-	double average;
-	double stddev;
+	d.n = 0;
 
 	// Valgrind cry if i don't do this
-	for(int i = 0; i < MAX_NAME_LEN; i++) filepath[i] = '\0';
+	for(int i = 0; i < MAX_NAME_LEN; i++) d.path[i] = '\0';
 
-	close(exp->p[0]);
-
+	close(p[0]);
 	while (true) {
-		len = 0;
-		get(filepath, bb);
-		if (!strcmp(filepath, STOP_SIGNAL)) break;
-		file_to_array(filepath, &numbers, &actual_len, &len);
-		average = avg(numbers, len);
-		stddev = std(numbers, len);
-		sem_wait(exp->mutex);
-		EXIT_ERROR(write(exp->p[1], &len, sizeof(size_t)), -1, "Error write");
-		EXIT_ERROR(write(exp->p[1], &average, sizeof(double)), -1, "Error write");
-		EXIT_ERROR(write(exp->p[1], &stddev, sizeof(double)), -1, "Error write");
-		EXIT_ERROR(write(exp->p[1], filepath, MAX_NAME_LEN * sizeof(char)), -1, "Error write");
-		sem_post(exp->mutex);
+		d.n = 0;
+		get(d.path, bb);
+		if (!strcmp(d.path, STOP_SIGNAL)) break;
+		file_to_array(d.path, &numbers, &actual_len, &d.n);
+		d.avg = avg(numbers, d.n);
+		d.std = std(numbers, d.n);
+		EXIT_ERROR(write(p[1], &d, sizeof(data_t)), -1, "Error write");
 	}
 	if (numbers != NULL) free(numbers);
-	close(exp->p[1]);
+	close(p[1]);
 	exit(EXIT_SUCCESS);
 }
 
@@ -221,25 +214,19 @@ static bool readpipe(int fd, void* msg, size_t msglen) {
 	return eof;
 }
 
-void collector(exp_t* exp) {
-	size_t n;
-	double average;
-	double stddev;
-	char path[MAX_NAME_LEN];
-	close(exp->p[1]);
+void collector(int p[]) {
+	data_t d;
+	close(p[1]);
 
 	PRINT_HEADER();
 
 	while (true) {
-		if (readpipe(exp->p[0], &n, sizeof(size_t))) break;
-		readpipe(exp->p[0], &average, sizeof(double));
-		readpipe(exp->p[0], &stddev, sizeof(double));
-		readpipe(exp->p[0], &path, MAX_NAME_LEN * sizeof(char));
-		printf("%-5lu %-10lf %-10lf %-20s\n", n, average, stddev, path);
+		if (readpipe(p[0], &d, sizeof(data_t))) break;
+		printf("%-5lu %-10lf %-10lf %-20s\n", d.n, d.avg, d.std, d.path);
 		fflush(stdout);
 	}
 	
-	close(exp->p[0]);
+	close(p[0]);
 	exit(EXIT_SUCCESS);
 }
 
