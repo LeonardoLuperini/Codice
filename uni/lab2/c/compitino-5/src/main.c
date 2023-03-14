@@ -13,7 +13,6 @@
 #include "statistic.h"
 
 #define MAX_NAME_LEN 384
-#define SHM_NAME "/shmlluperini5" //LO UTULIZZO ANCORA?!?!?!?!?!?
 #define STOP_SIGNAL "stop"
 #define CORRECT_SINTAX_MSG(name) printf("The correct syntax is:\n\t%s <directory> <n. worker> <dim. buffer>\n", name);
 
@@ -33,11 +32,11 @@
 #define IS_COLLECTOR(pid) (pid == 0)
 
 typedef struct {
-	sem_t* 	full; 	//n. of element before bb is full
-	sem_t* 	empty; 	//n. of element before bb is empty
-	sem_t* 	mutex;
-	size_t* tail;
-	size_t* head;
+	sem_t 	full; 	//n. of element before bb is full
+	sem_t 	empty; 	//n. of element before bb is empty
+	sem_t 	mutex;
+	size_t tail;
+	size_t head;
 	size_t 	len;
 	char 	strings[][MAX_NAME_LEN];
 } bb_t;
@@ -75,35 +74,13 @@ int main(int argc, char* argv[]) {
 	bb = mmap(NULL, sizeof(bb_t) + N * MAX_NAME_LEN * sizeof(char), PROT_WRITE|PROT_READ, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
 	EXIT_ERROR(bb, MAP_FAILED, "Error mmap");
 	bb->len = N;
-		
-	// Pointer to the head of bb
-	bb->head = mmap(NULL, sizeof(size_t), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-	EXIT_ERROR(bb->head, MAP_FAILED, "Error mmap")
-	*bb->head = 0;
-
-	// Pointer to the tail of bb
-	bb->tail = mmap(NULL, sizeof(size_t), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-	EXIT_ERROR(bb->tail, MAP_FAILED, "Error mmap")
-	*bb->tail = 0;
+	bb->head = 0;
+	bb->tail = 0;
 
 	// Semaphores creation
-	bb->mutex = mmap(NULL, sizeof(sem_t),
-			PROT_READ|PROT_WRITE,
-			MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-	EXIT_ERROR(bb->mutex, MAP_FAILED, "Error mmap");
-	sem_init(bb->mutex, 1, 1);
-
-	bb->empty = mmap(NULL, sizeof(sem_t),
-			PROT_READ|PROT_WRITE,
-			MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-	EXIT_ERROR(bb->empty, MAP_FAILED, "Error mmap");
-	sem_init(bb->empty, 1, 0);
-	
-	bb->full = mmap(NULL, sizeof(sem_t),
-			PROT_READ|PROT_WRITE,
-			MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-	EXIT_ERROR(bb->full, MAP_FAILED, "Error mmap");
-	sem_init(bb->full, 1, N);
+	sem_init(&bb->mutex, 1, 1);
+	sem_init(&bb->empty, 1, 0);
+	sem_init(&bb->full, 1, N);
 
 	// Exclusive pipe creation
 	EXIT_ERROR(pipe(p), -1, "Error pipe");
@@ -137,9 +114,9 @@ int main(int argc, char* argv[]) {
 		wait(NULL);
 	}
 	
-	sem_destroy(bb->full);
-	sem_destroy(bb->empty);
-	sem_destroy(bb->mutex);
+	sem_destroy(&bb->full);
+	sem_destroy(&bb->empty);
+	sem_destroy(&bb->mutex);
 	munmap(bb, sizeof(bb_t) + N * MAX_NAME_LEN * sizeof(char));
 	return EXIT_SUCCESS;
 }
@@ -226,21 +203,21 @@ void collector(int p[]) {
 }
 
 void put(char* str, bb_t* bb) {
-	sem_wait(bb->full);
-	sem_wait(bb->mutex);
-	strcpy(bb->strings[*bb->tail], str);
-	*bb->tail = (*bb->tail + 1) % bb->len;
-	sem_post(bb->empty);
-	sem_post(bb->mutex);
+	sem_wait(&bb->full);
+	sem_wait(&bb->mutex);
+	strcpy(bb->strings[bb->tail], str);
+	bb->tail = (bb->tail + 1) % bb->len;
+	sem_post(&bb->empty);
+	sem_post(&bb->mutex);
 }
 
 void get(char* str, bb_t* bb) {
-	sem_wait(bb->empty);
-	sem_wait(bb->mutex);
-	strcpy(str, bb->strings[*bb->head]);
-	*bb->head = (*bb->head + 1) % bb->len;
-	sem_post(bb->full);
-	sem_post(bb->mutex);
+	sem_wait(&bb->empty);
+	sem_wait(&bb->mutex);
+	strcpy(str, bb->strings[bb->head]);
+	bb->head = (bb->head + 1) % bb->len;
+	sem_post(&bb->full);
+	sem_post(&bb->mutex);
 }
 
 static bool str_is_size(char* str) {
