@@ -35,8 +35,8 @@ typedef struct {
 	sem_t 	full; 	//n. of element before bb is full
 	sem_t 	empty; 	//n. of element before bb is empty
 	sem_t 	mutex;
-	size_t tail;
-	size_t head;
+	size_t 	tail;
+	size_t 	head;
 	size_t 	len;
 	char 	strings[][MAX_NAME_LEN];
 } bb_t;
