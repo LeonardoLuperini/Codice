@@ -43,11 +43,6 @@ typedef struct {
 } bb_t;
 
 typedef struct {
-	sem_t* mutex;
-	int p[2];
-} exp_t; // exp_t stand for EXclusive Pipe Type
-
-typedef struct {
 	size_t n;
 	double avg;
 	double std;
