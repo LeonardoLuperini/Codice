@@ -17,16 +17,14 @@
 #define CORRECT_SINTAX_MSG(name) printf("The correct syntax is:\n\t%s <directory> <n. worker> <dim. buffer>\n", name);
 
 #define NPRINTF(s, n)\
-	for(int i = 0; i < n; i++) {\
-		printf("%s", s);\
-	}\
+	for(int i = 0; i < n; i++) printf("%s", s);\
 	printf("\n");
 
 #define PRINT_HEADER()\
 	printf("%-10s %-10s %-10s %-20s\n", "n", "avg", "std", "file");\
 	NPRINTF("-", 50);
 
-#define EXIT_ERROR(val, errval, msg) if ((val) == (errval)) { perror((msg)); exit(EXIT_FAILURE);}
+#define EXIT_ERROR(val, errval, msg) if ((val) == (errval)) {perror((msg)); exit(EXIT_FAILURE);}
 
 #define IS_WORKER(pid) (pid == 0)
 #define IS_COLLECTOR(pid) (pid == 0)
@@ -42,10 +40,10 @@ typedef struct {
 } bb_t;
 
 typedef struct {
-	size_t n;
-	double avg;
-	double std;
-	char path[MAX_NAME_LEN];
+	size_t 	n;
+	double 	avg;
+	double 	std;
+	char 	path[MAX_NAME_LEN];
 } data_t;
 
 void put(char* str, bb_t* bb);
@@ -59,18 +57,17 @@ static bool str_is_size(char* str);
 static bool readpipe(int fd, void* msg, size_t msglen);
 
 int main(int argc, char* argv[]) {
-	char path[MAX_NAME_LEN];
-	size_t W;
-	size_t N; //n. of element of bb
-	bb_t* bb;
-	pid_t pid;
-	int p[2]; //pipe
+	char 	path[MAX_NAME_LEN];
+	size_t 	W; //n. of element of worker(s)
+	size_t 	N; //n. of element of bb
+	bb_t* 	bb;
+	pid_t 	pid;
+	int 	p[2]; //pipe
 
 	// Checking argc, argv[2] and argv[3] and than assgning path, W and N
 	get_cli_input(argc, argv, path, &W, &N);
 
 	// Creation of the bounded buffer
-	// Pointer to the bounded buffer
 	bb = mmap(NULL, sizeof(bb_t) + N * MAX_NAME_LEN * sizeof(char), PROT_WRITE|PROT_READ, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
 	EXIT_ERROR(bb, MAP_FAILED, "Error mmap");
 	bb->len = N;
@@ -82,7 +79,7 @@ int main(int argc, char* argv[]) {
 	sem_init(&bb->empty, 1, 0);
 	sem_init(&bb->full, 1, N);
 
-	// Exclusive pipe creation
+	// Pipe creation
 	EXIT_ERROR(pipe(p), -1, "Error pipe");
 	
 	// Worker generation
@@ -188,8 +185,8 @@ static bool readpipe(int fd, void* msg, size_t msglen) {
 
 void collector(int p[]) {
 	data_t d;
-	close(p[1]);
 
+	close(p[1]);
 	PRINT_HEADER();
 
 	while (true) {
@@ -207,8 +204,8 @@ void put(char* str, bb_t* bb) {
 	sem_wait(&bb->mutex);
 	strcpy(bb->strings[bb->tail], str);
 	bb->tail = (bb->tail + 1) % bb->len;
-	sem_post(&bb->empty);
 	sem_post(&bb->mutex);
+	sem_post(&bb->empty);
 }
 
 void get(char* str, bb_t* bb) {
@@ -216,8 +213,8 @@ void get(char* str, bb_t* bb) {
 	sem_wait(&bb->mutex);
 	strcpy(str, bb->strings[bb->head]);
 	bb->head = (bb->head + 1) % bb->len;
-	sem_post(&bb->full);
 	sem_post(&bb->mutex);
+	sem_post(&bb->full);
 }
 
 static bool str_is_size(char* str) {
@@ -233,32 +230,31 @@ static void get_cli_input(int argc, char** argv, char* path, size_t* W, size_t* 
 		CORRECT_SINTAX_MSG(argv[0]);
 		exit(EXIT_FAILURE);
 	}
-	else {
-		strcpy(path, argv[1]);
+	strcpy(path, argv[1]);
 
-		if (!str_is_size(argv[2])) {
-			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
-			CORRECT_SINTAX_MSG(argv[0]);
-			exit(EXIT_FAILURE);
-		}
-		sscanf(argv[2], "%lu", W);
-		if (*W == 0) {
-			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
-			CORRECT_SINTAX_MSG(argv[0]);
-			exit(EXIT_FAILURE);
-		}
-		
-		if (!str_is_size(argv[3])) {
-			fprintf(stderr, "%s is not a valid size!\n", argv[3]);
-			CORRECT_SINTAX_MSG(argv[0]);
-			exit(EXIT_FAILURE);
-		}
-		sscanf(argv[3], "%lu", N);
-		if (*N == 0) {
-			fprintf(stderr, "%s is not a valid size!\n", argv[2]);
-			CORRECT_SINTAX_MSG(argv[0]);
-			exit(EXIT_FAILURE);
-		}
+	// n. of worker(s)
+	if (!str_is_size(argv[2])) {
+		fprintf(stderr, "%s is not a valid size!\n", argv[2]);
+		CORRECT_SINTAX_MSG(argv[0]);
+		exit(EXIT_FAILURE);
 	}
-
+	sscanf(argv[2], "%lu", W);
+	if (*W == 0) {
+		fprintf(stderr, "%s is not a valid size!\n", argv[2]);
+		CORRECT_SINTAX_MSG(argv[0]);
+		exit(EXIT_FAILURE);
+	}
+	
+	// n. of string(s) in the buffer
+	if (!str_is_size(argv[3])) {
+		fprintf(stderr, "%s is not a valid size!\n", argv[3]);
+		CORRECT_SINTAX_MSG(argv[0]);
+		exit(EXIT_FAILURE);
+	}
+	sscanf(argv[3], "%lu", N);
+	if (*N == 0) {
+		fprintf(stderr, "%s is not a valid size!\n", argv[2]);
+		CORRECT_SINTAX_MSG(argv[0]);
+		exit(EXIT_FAILURE);
+	}
 }

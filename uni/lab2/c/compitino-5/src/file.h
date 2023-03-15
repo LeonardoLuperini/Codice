@@ -17,7 +17,7 @@
 #define NOT_THIS_DIR(name) (strcmp(name, ".") != 0)
 #define NOT_PREV_DIR(name) (strcmp(name, "..") != 0)
 
-#define EXIT_ERROR(val, errval, msg) if ((val) == (errval)) { perror((msg)); exit(EXIT_FAILURE);}
+#define EXIT_ERROR(val, errval, msg) if ((val) == (errval)) {perror((msg)); exit(EXIT_FAILURE);}
 
 #define CHECK_GETLINE(res)\
 	if ((res) == -1 && !feof(f)) {perror("Error getline"); exit(EXIT_FAILURE);}
