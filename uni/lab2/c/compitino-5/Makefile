@@ -1,5 +1,5 @@
 CC 		:= gcc
-CFLAGS 	:= -Wall -pedantic
+CFLAGS 	:= -Wall -Wextra -pedantic
 CPPFLAGS:= -pthread
 LDLIBS  := -lm -lrt
 LDFLAGS := -pthread $(LDLIBS)

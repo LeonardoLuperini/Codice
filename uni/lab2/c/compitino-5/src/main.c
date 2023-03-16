@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
 	EXIT_ERROR(pipe(p), -1, "Error pipe");
 	
 	// Worker generation
-	for (int i = 0; i < W; i++) {
+	for (size_t i = 0; i < W; i++) {
 		EXIT_ERROR(pid = fork(), -1, "Error fork");
 		if IS_WORKER(pid) {
 			worker(bb, p);
@@ -101,13 +101,13 @@ int main(int argc, char* argv[]) {
 	close(p[1]);
 	scanfs(path, bb);
 
-	for (int i = 0; i < W; i++) {
+	for (size_t i = 0; i < W; i++) {
 		put(STOP_SIGNAL, bb);
 	}
 	//******************************************
 	
 	// Spring cleaning
-	for (int i = 0; i < W + 1; i++) {
+	for (size_t i = 0; i < W + 1; i++) {
 		wait(NULL);
 	}
 	

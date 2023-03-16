@@ -2,19 +2,19 @@
 
 static double arraysum(double numbers[], size_t len) {
 	double res = 0;
-	for(int i = 0; i < len; i++)
+	for(size_t i = 0; i < len; i++)
 		res += numbers[i];	
 	return res;
 }
 
 static void sqarray(double numbers[], size_t len) {
-	for(int i = 0; i < len; i++) {
+	for(size_t i = 0; i < len; i++) {
 		numbers[i] *= numbers[i];
 	}
 }
 
 static void subtoarray(double numbers[], size_t len, double num) {
-	for(int i = 0; i < len; i++) {
+	for(size_t i = 0; i < len; i++) {
 		numbers[i] -= num;
 	}
 }
@@ -28,7 +28,7 @@ static double* deepcopy(double numbers[], size_t len) {
 	double* copy = malloc(len * sizeof(double));
 	if (copy == NULL) exit(EXIT_FAILURE);
 
-	for (int i = 0; i < len; i++) {
+	for (size_t i = 0; i < len; i++) {
 		copy[i] = numbers[i];
 	}
 	
