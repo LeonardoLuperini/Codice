@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #define BUFLEN 	1024
-#define MAX_NAME_LEN 384 //nome del file o linghezza totale del path?
+#define MAX_NAME_LEN 384 
 
 #define IS_DIR(file) (file->d_type == DT_DIR)
 #define IS_FILE(file) (file->d_type == DT_REG)
