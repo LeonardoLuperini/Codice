@@ -3,10 +3,10 @@
 #include <pthread.h>
 
 #define EXIT_ERROR(val, errval, msg) if ((val) == (errval)) {perror((msg)); exit(EXIT_FAILURE);}
+#define USELESS_ARG(arg) (arg) = NULL; free((arg));
 
 void* f(void* arg) {
-	arg = NULL;
-	free(arg);
+	USELESS_ARG(arg);
 	printf("Sono il thread %lu\n", pthread_self());
 	return NULL;
 }
@@ -20,12 +20,10 @@ int main(int argc, char** argv) {
 	}	
 	n = atoi(argv[1]);
 	t = malloc(n * sizeof(pthread_t));
-	for(size_t i = 0; i < n; i++) {
-		pthread_create(&(t[i]), NULL, f, NULL);
-	}
-	for(size_t i = 0; i < n; i++) {
-		pthread_join(t[i], NULL);
-	}
+
+	for(size_t i = 0; i < n; i++) pthread_create(&(t[i]), NULL, f, NULL);
+	for(size_t i = 0; i < n; i++) pthread_join(t[i], NULL);
+
 	free(t);
 	return EXIT_SUCCESS;
 }
