@@ -1,7 +1,7 @@
 CC 		:= gcc
-CFLAGS 	:= -Wall -Wextra -pedantic
+CFLAGS 	:= -Wall -Wextra -pedantic -std=c11
 CPPFLAGS:= -pthread
-LDLIBS  := -lm -lrt
+LDLIBS  := -lrt
 LDFLAGS := -pthread $(LDLIBS)
 EXE 	:= main.out
 DEB 	:= debug.out
