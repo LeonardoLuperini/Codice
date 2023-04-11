@@ -1,5 +1,14 @@
 #include "tsqueue.h"
 
+node_t *node_init(void *data) {
+    node_t *newnode = malloc(sizeof(node_t));
+    if (newnode != NULL) {
+        newnode->data = data;
+        newnode->next = NULL;
+    }
+    return newnode;
+}
+
 queue_t *queue_init() {
     queue_t *q = malloc(sizeof(queue_t));
     ERR_RET(q == NULL, NULL);
@@ -15,7 +24,7 @@ queue_t *queue_init() {
     return q;
 }
 
-bool qpush(queue_t *queue, void *data) {
+bool queue_push(queue_t *queue, void *data) {
     node_t *newnode = node_init(data);
     if (newnode != NULL) {
         mtx_lock(&queue->mtx);
@@ -24,14 +33,14 @@ bool qpush(queue_t *queue, void *data) {
         if (queue->tail != NULL)
             queue->tail->next = newnode;
         queue->tail = newnode;
-    	cond_signal(&queue->cond);
+        cond_signal(&queue->cond);
         mtx_unlock(&queue->mtx);
         return true;
     }
     return false;
 }
 
-void *qpop(queue_t *queue) {
+void *queue_pop(queue_t *queue) {
     void *data;
     mtx_lock(&queue->mtx);
     while (queue->tail == NULL)
@@ -43,12 +52,15 @@ void *qpop(queue_t *queue) {
     mtx_unlock(&queue->mtx);
     return data;
 }
-
-node_t *node_init(void *data) {
-    node_t *newnode = malloc(sizeof(node_t));
-    if (newnode != NULL) {
-        newnode->data = data;
-        newnode->next = NULL;
+void queue_destroy(queue_t *queue) {
+    node_t *this_node = queue->head;
+    node_t *next_node;
+    while (this_node) {
+        next_node = this_node->next;
+        free(this_node);
     }
-    return newnode;
+    queue->head = NULL;
+    queue->tail = NULL;
+    mtx_init(&queue->mtx);
+    cond_destroy(&queue->cond);
 }
