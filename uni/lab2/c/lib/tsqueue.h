@@ -74,5 +74,13 @@ void *queue_pop(queue_t *queue);
  */
 void queue_destroy(queue_t *queue);
 
+/* Destroy a queue and free each data parameter
+ * 
+ * Params:
+ * Pointer to a queue that you want to destroy.
+ * That pointer now point to an empty queue.
+ *
+ */
+void queue_destroy_fd(queue_t *queue);
 
 #endif

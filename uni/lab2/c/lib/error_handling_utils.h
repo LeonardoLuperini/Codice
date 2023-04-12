@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define ERR_PEXIT(cond, msg) 												   \
+#define ERR_PRINT_EXIT(cond, msg) 												   \
 	if ((cond)) { 															   \
 		fprintf(stderr, msg); 												   \
 		exit(EXIT_FAILURE); 												   \
@@ -13,14 +13,14 @@
 	if ((cond)) return retval;
 
 
-#define ERR_FREE_FREE(cond, ptr, msg)                                          \
+#define ERR_FREE_EXIT(cond, ptr, msg)                                          \
     if ((cond)) {                                                              \
         perror((msg));                                                         \
         free((ptr));                                                           \
         exit(EXIT_FAILURE);                                                    \
     }
 
-#define EXIT_ERR(cond, msg)                                                    \
+#define ERR_PERROR_EXIT(cond, msg)                                                    \
     if ((cond)) {                                                              \
         perror((msg));                                                         \
         exit(EXIT_FAILURE);                                                    \
