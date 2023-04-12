@@ -1,0 +1,7 @@
+gcc
+-Wall
+-Wextra
+-pedantic
+-std=c11
+-pthread
+-lrt
