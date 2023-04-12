@@ -6,9 +6,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "pthread_utils.h"
-
-#define ERR_RET(cond, retval) 				\
-if ((cond)) return retval;
+#include "error_handling_utils.h"
 
 typedef struct node_t {
     void *data;
@@ -76,5 +74,13 @@ void *queue_pop(queue_t *queue);
  */
 void queue_destroy(queue_t *queue);
 
+/* Destroy a queue and free each data parameter
+ * 
+ * Params:
+ * Pointer to a queue that you want to destroy.
+ * That pointer now point to an empty queue.
+ *
+ */
+void queue_destroy_fd(queue_t *queue);
 
 #endif

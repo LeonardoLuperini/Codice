@@ -1,28 +1,17 @@
 #define _GNU_SOURCE
+#include "error_handling_utils.h"
+#include "tsqueue.h"
+#include <ctype.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define FILETOREAD "bible.txt"
-
-#ifndef EXIT_ERR
-#define EXIT_ERR(cond, msg)                                                    \
-    if ((cond)) {                                                              \
-        perror((msg));                                                         \
-        exit(EXIT_FAILURE);                                                    \
-    }
-#endif
-
-#ifndef EXIT_ERR_FREE
-#define EXIT_ERR_FREE(cond, ptr, msg)                                          \
-    if ((cond)) {                                                              \
-        perror((msg));                                                         \
-        free((ptr));                                                           \
-        exit(EXIT_FAILURE);                                                    \
-    }
-#endif
+#define STOP "fermatistop"
+#define N 2
 
 // static string
 typedef struct {
@@ -30,54 +19,105 @@ typedef struct {
     char *str;
 } sstr_t;
 
+typedef struct {
+    char *filename;
+    queue_t *queue_lines;
+} arg1_t;
+
+typedef struct {
+    queue_t *queue_lines;
+    queue_t *queue_words;
+} arg2_t;
+
 /* Works like getline but return 0 if EOF,
  * return -1 if error, and 1 otherwise
  */
 ssize_t getlineerr(char **lineptr, size_t *n, FILE *stream);
 void *t1(void *arg);
+void *t2(void *arg);
 
 int main(void) {
     // MANCANO I CONTROLLI
-    pthread_t tid[3];
+    pthread_t tid[N];
+    queue_t *queue_lines = queue_init();
+    queue_t *queue_words = queue_init();
+
+    arg1_t arg1;
+    arg1.filename = FILETOREAD;
+    arg1.queue_lines = queue_lines;
+
+    arg2_t arg2;
+    arg2.queue_lines = queue_lines;
+    arg2.queue_words = queue_words;
+
     // T1
-    // Apre il file, legge le righe e le carica nella coda delle righe
-    pthread_create(&tid[0], NULL, t1, FILETOREAD);
+    // Apre il file, legge le righe e le carica nella coda delle righe.
+    pthread_create(&tid[0], NULL, t1, &arg1);
     // T2
     // Legge la coda delle righe, tokenizza la stringa in parole e la inserisce
-    // nalla coda delle parole
+    // nalla coda delle parole.
+    pthread_create(&tid[1], NULL, t2, &arg2);
 
     // T3
-    // Stampa le parole nella lista delle parole
+    // Stampa le parole nella lista delle parole.
 
-    pthread_join(tid[0], NULL);
-    /*
-for (size_t i = 0; i < 3; i++) {
-    pthread_join(tid[i], NULL);
-}
-    */
+    for (size_t i = 0; i < N; i++) {
+        pthread_join(tid[i], NULL);
+    }
+
+    queue_destroy(queue_lines);
+    queue_destroy(queue_words);
     return EXIT_SUCCESS;
 }
 
 void *t1(void *arg) {
-    char *fname = arg;
+    arg1_t *arg1 = (arg1_t *)arg;
+    char *fname = arg1->filename;
+    queue_t *queue = arg1->queue_lines;
     FILE *fd;
-    sstr_t line;
     ssize_t glres;
+    sstr_t line;
     line.str = NULL;
     line.len = 0;
     size_t c = 0;
 
-    EXIT_ERR((fd = fopen(fname, "r")) == NULL, "Error fopen");
+    ERR_PERROR_EXIT((fd = fopen(fname, "r")) == NULL, "Error fopen");
 
-    while ((glres = getlineerr(&line.str, &line.len, fd)) != 0 && c < 100) {
-        printf("[%lu]%s", c, line.str);
+    while (c < 20 && (glres = getlineerr(&line.str, &line.len, fd)) != 0) {
+        queue_push(queue, (void *)line.str);
         c++;
+        line.str = NULL;
+        line.len = 0;
     }
-    EXIT_ERR_FREE(glres == -1, line.str, "Error getlineerr");
+    ERR_FREE_EXIT(glres == -1, line.str, "Error getlineerr");
 
-    free(line.str);
-    line.len = 0;
-    EXIT_ERR(fclose(fd) == EOF, "Error fclose");
+    ERR_PERROR_EXIT(fclose(fd) == EOF, "Error fclose");
+
+    queue_push(queue, STOP);
+
+    return EXIT_SUCCESS;
+}
+
+void *t2(void *arg) {
+    arg2_t *arg2 = (arg2_t *)arg;
+    queue_t *queue_lines = arg2->queue_lines;
+    queue_t *queue_words = arg2->queue_words;
+    char *stringa, *str_mod, *tok;
+
+    stringa = (char *)queue_pop(queue_lines);
+    while (strcmp(stringa, STOP)) {
+        str_mod = stringa;
+        tok = strtok(str_mod, " ");
+        while (tok != NULL) {
+            if (sizeof tok == sizeof(char) && !isspace(tok))
+                printf("%s\n", tok);
+            else
+                printf("%s\n", tok);
+            tok = strtok(NULL, " ");
+        }
+        free(stringa);
+        stringa = (char *)queue_pop(queue_lines);
+    }
 
     return EXIT_SUCCESS;
 }

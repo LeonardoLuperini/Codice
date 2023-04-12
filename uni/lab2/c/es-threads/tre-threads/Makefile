@@ -1,3 +1,4 @@
+vpath %.h ../libs
 CC 		:= gcc
 CFLAGS 	:= -Wall -Wextra -pedantic -std=c11
 CPPFLAGS:= -pthread
@@ -10,6 +11,8 @@ SRCS 	:= $(wildcard $(SRC)/*.c)
 OBJ 	:= ./obj
 OBJS 	:= $(SRCS:$(SRC)/%.c=$(OBJ)/%.o)
 
+
+.DELETE_ON_ERROR:
 .PHONY: all clean
 
 all: $(EXE)
