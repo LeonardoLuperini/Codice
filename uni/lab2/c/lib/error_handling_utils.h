@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define ERR_PRINT_EXIT(cond, msg) 												   \
+#define ERR_PRINT_EXIT(cond, msg) 											   \
 	if ((cond)) { 															   \
 		fprintf(stderr, msg); 												   \
 		exit(EXIT_FAILURE); 												   \
@@ -20,7 +20,7 @@
         exit(EXIT_FAILURE);                                                    \
     }
 
-#define ERR_PERROR_EXIT(cond, msg)                                                    \
+#define ERR_PERROR_EXIT(cond, msg)                                             \
     if ((cond)) {                                                              \
         perror((msg));                                                         \
         exit(EXIT_FAILURE);                                                    \

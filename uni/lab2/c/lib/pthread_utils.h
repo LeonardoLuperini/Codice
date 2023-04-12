@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "error_handling_utils.h"
 
 /* TEXIT stand for Thread EXIT*/
 #define ERR_TEXIT(cond, msg)                                                   \
@@ -13,6 +14,12 @@
         fprintf(stderr, msg);                                                  \
         pthread_exit((void*)EXIT_FAILURE);                                     \
     }
+
+/* Like pthread_create(tid, NULL, &fun, &arg) but exit the thread when get an error */
+void sthread_create(pthread_t *thread, void *(*start_routine) (void *), void *arg);
+
+/* Like pthread_join(thread, retval) but exit the thread when get an error */
+void sthread_join(pthread_t thread, void **retval);
 
 /* Like pthread_mutex_lock but exit the thread when get an error */
 void mtx_lock(pthread_mutex_t *mutex);

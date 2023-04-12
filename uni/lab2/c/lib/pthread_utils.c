@@ -1,5 +1,18 @@
 #include "pthread_utils.h"
 
+/* Like pthread_create(tid, NULL, &fun, &arg) but exit the thread when get an
+ * error */
+inline void sthread_create(pthread_t *thread, void *(*start_routine)(void *),
+                           void *arg) {
+    ERR_PRINT_EXIT(pthread_create(thread, NULL, start_routine, arg) != 0,
+                   "Error pthread_create\n");
+}
+
+/* Like pthread_join(thread, retval) but exit the thread when get an error */
+inline void sthread_join(pthread_t thread, void **retval) {
+    ERR_PRINT_EXIT(pthread_join(thread, retval) != 0, "Error pthread_join\n");
+}
+
 /* Like pthread_mutex_lock but exit the thread when get an error */
 inline void mtx_lock(pthread_mutex_t *mutex) {
     ERR_TEXIT(pthread_mutex_lock(mutex) != 0, "Error pthread_mutex_lock\n");
