@@ -1,9 +1,0 @@
-gcc
-./src/%c
-./src/%h
--Wall
--Wextra
--pedantic
--pthread
--lm
--lrt
