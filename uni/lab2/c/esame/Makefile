@@ -1,24 +1,36 @@
-CC 		:= gcc
-CFLAGS 	:= -Wall -Wextra -pedantic
-CPPFLAGS:= -pthread
-LDLIBS  := -lm -lrt
-LDFLAGS := -pthread $(LDLIBS)
+CC			:= gcc
+CFLAGS		:= -Wall -Wextra -pedantic
+CPPFLAGS	:= -pthread
+LDLIBS		:= -lm -lrt
+LDFLAGS		:= -pthread $(LDLIBS)
 
-EXE 	:= main.out
-DEB 	:= debug.out
+SRC_MAS		:= master.c
+SRC_COL		:= collector.c
 
-SRC 	:= ./src
-SRCS 	:= $(wildcard $(SRC)/*.c)
-RELFOL	:= ./relobj
-DEBFOL	:= ./debobj
-RELOBJS	:= $(SRCS:$(SRC)/%.c=$(RELFOL)/%.o)
-DEBOBJS	:= $(SRCS:$(SRC)/%.c=$(DEBFOL)/%.o)
+MAS			:= master.out
+COL			:= collector.out
+DEB_MAS		:= debmaster.out
+DEB_COL		:= debcollector.out
+
+SRC			:= ./src
+SRCS		:= $(wildcard $(SRC)/*.c)
+MAS_SRCS	:= $(filter-out $(SRC)/$(SRC_COL), $(SRCS))
+COL_SRCS	:= $(filter-out $(SRC)/$(SRC_MAS), $(SRCS))
+RELFOL		:= ./relobj
+DEBFOL		:= ./debobj
+MAS_RELOBJS	:= $(MAS_SRCS:$(SRC)/%.c=$(RELFOL)/%.o)
+COL_RELOBJS	:= $(COL_SRCS:$(SRC)/%.c=$(RELFOL)/%.o)
+MAS_DEBOBJS	:= $(MAS_SRCS:$(SRC)/%.c=$(DEBFOL)/%.o)
+COL_DEBOBJS	:= $(COL_SRCS:$(SRC)/%.c=$(DEBFOL)/%.o)
 
 .PHONY: all clean deb
 
-all: $(EXE)
+all: $(MAS) $(COL)
 
-$(EXE): $(RELOBJS) 
+$(MAS): $(MAS_RELOBJS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(COL): $(COL_RELOBJS)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
 
 $(RELFOL)/%.o: $(SRC)/%.c
@@ -27,9 +39,12 @@ $(RELFOL)/%.o: $(SRC)/%.c
 
 -include $(RELFOL)/*.d
 
-deb: $(DEB)
+deb: $(DEB_MAS) $(DEB_COL)
 
-$(DEB): $(DEBOBJS) 
+$(DEB_MAS): $(MAS_DEBOBJS) 
+	$(CC) -g -DDEBUG $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(DEB_COL): $(COL_DEBOBJS) 
 	$(CC) -g -DDEBUG $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
 
 $(DEBFOL)/%.o: $(SRC)/%.c
@@ -39,4 +54,4 @@ $(DEBFOL)/%.o: $(SRC)/%.c
 -include $(DEBFOL)/*.d
 
 clean:
-	rm -fr $(EXE) $(DEB) $(RELFOL) $(DEBFOL)
+	rm -fr $(MAS) $(DEB_MAS) $(COL) $(DEB_COL) $(RELFOL) $(DEBFOL)

@@ -1,36 +1,21 @@
-#include "error_handling_utils.h"
+#include "common.h"
 #include "files.h"
 #include "statistic.h"
-#include "tsqueue.h"
-#include <ctype.h>
 #include <dirent.h>
-#include <errno.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-
-#ifdef DEBUG
-#define DPRINT(...) fprintf(stderr, __VA_ARGS__);
-#else
-#define DPRINT(...) ;
-#endif
 
 #define CORRECT_SINTAX_MSG(name)                                               \
     printf("The correct syntax is:\n"                                          \
            "\t%s  <n. threads> <path_to_file>\n",                              \
            name);
 
-#define NPRINTF(s, n)                                                          \
-    for (int i = 0; i < n; i++)                                                \
-        printf("%s", s);                                                       \
-    printf("\n");
-
-#define PRINT_HEADER()                                                         \
-    printf("%-10s %-10s %-10s %-20s\n", "n", "avg", "std", "file");            \
-    NPRINTF("-", 50);
-
 #define STOP 0
+
+typedef struct arg {
+    queue_t *files;
+    struct sockaddr_un *sa;
+    tscounter_t *counter;
+    size_t nworker;
+} arg_t;
 
 static void get_cli_input(int argc, char **argv, size_t *nworker, char **path);
 static bool str_is_size(char *str);
@@ -40,54 +25,97 @@ static void *worker(void *arg);
 int main(int argc, char *argv[]) {
     size_t nworker;
     char *path;
+    arg_t arg;
+
+    get_cli_input(argc, argv, &nworker, &path);
+    DPRINT("nworker: %lu\npath: %s\n", nworker, path);
+    pthread_t tids[nworker];
+
     queue_t *files = queue_init();
     ERR_PRINT_EXIT(files == NULL, "Error queue_init\n");
 
-    get_cli_input(argc, argv, &nworker, &path);
-    pthread_t tid[nworker];
-    DPRINT("nworker: %lu\n"
-           "path: %s\n",
-           nworker, path);
+    struct sockaddr_un sa;
+    strncpy(sa.sun_path, SOK_NAME, SUN_MAX_LEN);
+    sa.sun_family = AF_UNIX;
 
-    PRINT_HEADER();
-
-    for (size_t i = 0; i < nworker; i++) {
-        sthread_create(&tid[i], worker, (void *)files);
-    }
+    arg.files = files;
+    arg.sa = &sa;
+    arg.counter = counter_init(1);
+    arg.nworker = nworker;
+    for (size_t i = 0; i < nworker; i++)
+        sthread_create(&tids[i], worker, (void *)&arg);
 
     search_datfiles(path, files);
-    for (size_t i = 0; i < nworker; i++) {
-        ERR_PRINT_EXIT(!queue_push(files, STOP), "Error queue_push\n");
-    }
 
-    for (size_t i = 0; i < nworker; i++) {
-        sthread_join(tid[i], NULL);
-    }
+    for (size_t i = 0; i < nworker; i++)
+        ERR_PRINT_EXIT(!queue_push(files, STOP), "Error queue_push\n");
+
+    for (size_t i = 0; i < nworker; i++)
+        sthread_join(tids[i], NULL);
 
     queue_destroy(files);
+
     return EXIT_SUCCESS;
 }
 
 static void *worker(void *arg) {
-    queue_t *files = (queue_t *)arg;
+    arg_t *arg1 = (arg_t *)arg;
+    struct sockaddr_un *sa = (struct sockaddr_un *)arg1->sa;
+    queue_t *files = (queue_t *)arg1->files;
+
+    data_t data;
     char *path;
     double *num_array = NULL;
     size_t num_array_len = 0;
-    size_t n_of_doubles = 0;
-    double average, stdev;
 
+    int fd_skt;
+
+    DPRINT("%lu: Hello\n", pthread_self());
+
+    // Soket
+    fd_skt = socket(AF_UNIX, SOCK_STREAM, 0);
+    ERR_PERROR_EXIT(fd_skt == -1, "Error socket");
+    DPRINT("%lu: connecting to %s\n", pthread_self(), SOK_NAME);
+    while (connect(fd_skt, (struct sockaddr *)sa, sizeof(*sa)) == -1) {
+        ERR_PERROR_EXIT(errno != ENOENT, "Error connect");
+        DPRINT("%lu: retry to connect to %s\terrno = %d\n", pthread_self(),
+               SOK_NAME, errno);
+        sleep(1);
+        errno = 0;
+    }
+
+    data.n = 0;
     path = (char *)queue_pop(files);
     while (path != STOP) {
         DPRINT("%lu: %s\n", pthread_self(), path);
 
-        file_to_array(path, &num_array, &num_array_len, &n_of_doubles);
-        average = avg(num_array, n_of_doubles);
-        stdev = std(num_array, n_of_doubles);
-        printf("%lu\t%lf\t%lf\t%s\n", n_of_doubles, average, stdev, path);
-
+        file_to_array(path, &num_array, &num_array_len, &(data.n));
+        data.avg = avg(num_array, data.n);
+        data.std = std(num_array, data.n);
+        strcpy(data.path, path);
+        DPRINT("%lu: %lu\t%lf\t%lf\t%s\n", pthread_self(), data.n, data.avg,
+               data.std, data.path);
+        write(fd_skt, &data, sizeof(data_t));
         free(path);
         path = (char *)queue_pop(files);
     }
+
+    mtx_lock(&arg1->counter->mtx);
+    if (arg1->counter->val < arg1->nworker) {
+        (arg1->counter->val)++;
+        DPRINT("counter: %d\n", arg1->counter->val);
+        mtx_unlock(&arg1->counter->mtx);
+    } else {
+        mtx_unlock(&arg1->counter->mtx);
+        data.n = 0;
+        data.std = -1;
+        data.avg = -1;
+        strcpy(data.path, STOP_STR);
+        write(fd_skt, &data, sizeof(data_t));
+    }
+
+    close(fd_skt);
+    unlink(SOK_NAME);
 
     return EXIT_SUCCESS;
 }

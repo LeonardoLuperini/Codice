@@ -15,6 +15,11 @@
         pthread_exit((void*)EXIT_FAILURE);                                     \
     }
 
+typedef struct tscounter {
+    pthread_mutex_t mtx;
+    uint val;
+} tscounter_t;
+
 /* Like pthread_create(tid, NULL, &fun, &arg) but exit the thread when get an error */
 void sthread_create(pthread_t *thread, void *(*start_routine) (void *), void *arg);
 
@@ -47,5 +52,11 @@ void cond_wait(pthread_cond_t *cond, pthread_mutex_t *mtx);
 
 /* Like pthread_cond_broadcast(cond) but exit the thread when get an error */
 void cond_broadcast(pthread_cond_t *cond);
+
+/* Initialize a counter if there is an error return NULL*/
+tscounter_t* counter_init(uint val);
+
+/* Delete a counter if there is an error exit*/
+void counter_del(tscounter_t *counter);
 
 #endif

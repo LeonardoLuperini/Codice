@@ -60,3 +60,19 @@ inline void cond_broadcast(pthread_cond_t *cond) {
     ERR_TEXIT(pthread_cond_broadcast(cond) != 0,
               "Error pthread_cond_broadcast\n");
 }
+
+tscounter_t *counter_init(uint val) {
+    tscounter_t *c = malloc(sizeof(tscounter_t));
+    ERR_RET(c == NULL, NULL);
+    if (pthread_mutex_init(&c->mtx, NULL) != 0) {
+        free(c);
+        return NULL;
+    }
+    c->val = val;
+    return c;
+}
+
+void counter_del(tscounter_t *counter) {
+    mtx_destroy(&counter->mtx);
+    free(counter);
+}
