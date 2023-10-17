@@ -1,6 +1,0 @@
-gcc
-%c
-%h
--Wall
--Wextra
--pedantic
