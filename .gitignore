@@ -36,6 +36,9 @@
 *package-lock.json
 *package.json
 
+# --- Java ---
+**.class
+
 
 # --- General ---
 *.pdf
