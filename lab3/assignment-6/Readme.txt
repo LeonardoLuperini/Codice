@@ -1,0 +1,1 @@
+Il tempo di esecuzione del multi-threaded è minore del single-threaded
