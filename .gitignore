@@ -1,7 +1,6 @@
 # --- VS code ---
 *.vscode
 
-
 # --- Rust ---
 **/rust/**/debug/
 **/rust/**/target/
@@ -16,7 +15,7 @@
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
-# Ocaml
+# --- Ocaml ---
 **.cmx
 **.cmi
 **.o
@@ -30,6 +29,8 @@
 **/obj
 **/.ccls-cache
 
+# --- Gradle ---
+**/.gradle
 
 # --- JS/TS ---
 **/node_modules
@@ -38,7 +39,6 @@
 
 # --- Java ---
 **.class
-
 
 # --- General ---
 *.pdf
