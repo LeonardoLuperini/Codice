@@ -8,15 +8,16 @@ import java.nio.channels.WritableByteChannel;
 import java.nio.file.Path;
 
 public class FCDuplicator implements Duplicator {
+	String mode;
 	ByteBuffer bb;
 
-	public FCDuplicator (ByteBuffer bb) {
-		this.bb = bb;
+	public FCDuplicator (String mode) {
+		this.mode = mode;
 	}
 
-	public void duplicate(Path in, Path out) throws IOException {
-		long t0 = System.currentTimeMillis();
-		System.out.println("\nin: " + in.toString() + " out: " + out.toString());
+	public void duplicate(Path in, Path out, int size) throws IOException {
+		if (mode.equals("direct")) bb = ByteBuffer.allocateDirect(size);
+		else bb = ByteBuffer.allocate(size);
 		ReadableByteChannel src = Channels.newChannel(new FileInputStream(in.toString()));
 		WritableByteChannel dest = Channels.newChannel(new FileOutputStream(out.toString()));
 
@@ -28,7 +29,5 @@ public class FCDuplicator implements Duplicator {
 
 		dest.close();
 		src.close();
-		long t1 = System.currentTimeMillis();
-		return t1 - t0;
 	}
 }
