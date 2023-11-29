@@ -20,20 +20,17 @@ public class Client {
 		SocketChannel socket = openSocket(sAddr);
 		
 		try {
+			getMessage(scanner, buffer);
+			socket.write(buffer);
+			buffer.clear();
 
-			while (true) {
-				getMessage(scanner, buffer);
-				socket.write(buffer);
-				buffer.clear();
+			socket.read(buffer);
 
-				socket.read(buffer);
-
-				buffer.flip();
-				byte[] data = new byte[buffer.remaining()];
-				buffer.get(data);
-				System.out.println(new String(data));
-				buffer.clear();
-			}
+			buffer.flip();
+			byte[] data = new byte[buffer.remaining()];
+			buffer.get(data);
+			System.out.println(new String(data));
+			buffer.clear();
 		} catch (IOException ioe) {
 			ioe.printStackTrace();
 		}

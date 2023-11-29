@@ -49,32 +49,32 @@ public class Server {
 							System.out.println("Accepted connection from " + socket);
 
 							socket.configureBlocking(false);
-							socket.register(selector, SelectionKey.OP_READ);
+							SelectionKey key2 = socket.register(selector, SelectionKey.OP_READ);
+							key2.attach(ByteBuffer.allocate(1024));
 						}
 						else if (key.isReadable()) {
-							System.out.println("Sono dentro!");
 							socket = (SocketChannel) key.channel();
-							buffer = ByteBuffer.allocate(1024);
+							buffer = (ByteBuffer) key.attachment();
 
 							if(socket.read(buffer)==-1) {
-								System.out.println("Sono stronzo");
 								key.cancel();
 								continue;
 							}
 
 							buffer.flip();
-							System.out.println(buffer);
 
 							byte[] data = new byte[buffer.remaining()];
 							buffer.get(data);
 							msg = new String(data);
+							buffer.clear();
 
-							System.out.println("recived: " + msg);
 							msg = "echoed by server: " + msg;
-							ByteBuffer buffer2 = ByteBuffer.wrap(msg.getBytes());
-							System.out.println(buffer2);
+							buffer.put(msg.getBytes());
+							buffer.position(0);
+							buffer.limit(msg.length());
 
-							socket.write(buffer2);
+							socket.write(buffer);
+							buffer.clear();
 						}
 					} catch (Exception e) {
 						e.printStackTrace();
